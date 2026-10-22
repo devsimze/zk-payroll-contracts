@@ -4902,11 +4902,9 @@ impl Payroll {
             &Self::pending_payroll_run_count(&e).saturating_sub(1),
         );
 
-        // Emit cancellation event with reason for audit trail
-        e.events().publish(
-            (symbol_short!("payroll"), Symbol::new(&e, "run_cancelled")),
-            (run_id, reason),
-        );
+        // Publish only operational metadata: never amounts, employee counts,
+        // draft hashes, or a caller-supplied free-form reason.
+        payroll_events::emit_run_cancelled(&e, run_id, admin.clone());
         Self::emit_treasury_balance_snapshot(&e, addrs.token, Symbol::new(&e, "run_cancelled"));
     }
 
@@ -16535,5 +16533,52 @@ mod tests {
 
         let outsider = Address::generate(&env);
         payroll_client.record_stalled_run_recovery(&outsider, &run_id);
+    }
+
+    #[test]
+    fn payroll_cancellation_event_excludes_private_payroll_values() {
+        let env = Env::default();
+        let (payroll_client, admin, _treasury, _treasury_owner, employee) =
+            setup_simple_payroll(&env);
+        let (proofs, amounts, employees) = single_payment_batch(&env, &employee, 12_345);
+        let nonce = test_nonce(&env, 254);
+        let run_id = payroll_client.prepare_payroll_run(
+            &proofs,
+            &amounts,
+            &employees,
+            &12_345,
+            &nonce,
+            &None,
+        );
+
+        payroll_client.cancel_payroll_run_with_reason(
+            &admin,
+            &run_id,
+            &Symbol::new(&env, "operator_cancel"),
+        );
+
+        let events = env.events().all();
+        let mut found = false;
+        for event in events.events().iter() {
+            let v0 = match &event.body {
+                soroban_sdk::xdr::ContractEventBody::V0(v0) => v0,
+            };
+            if v0.topics.len() != 2
+                || Symbol::try_from_val(&env, &v0.topics[1]).ok()
+                    != Some(Symbol::new(&env, "run_cancelled"))
+            {
+                continue;
+            }
+
+            found = true;
+            let fields = match &v0.data {
+                soroban_sdk::xdr::ScVal::Vec(Some(values)) => values.to_vec(),
+                _ => panic!("cancellation event must contain a metadata tuple"),
+            };
+            assert_eq!(fields.len(), 2, "event must contain only run ID and actor");
+            assert_eq!(u64::try_from_val(&env, &fields[0]).unwrap(), run_id);
+            assert_eq!(Address::try_from_val(&env, &fields[1]).unwrap(), admin);
+        }
+        assert!(found, "expected a run_cancelled event");
     }
 }
