@@ -4,7 +4,7 @@
 
 mod common;
 
-use payroll::{FundingSourceBlocker, Payroll, PayrollClient};
+use payroll::{ContractAddresses, DataKey, FundingSourceBlocker, Payroll, PayrollClient};
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{Address, Env};
 
@@ -92,19 +92,27 @@ fn deactivated_asset_is_reported_without_reading_balance() {
 fn unavailable_token_contract_is_reported_cleanly() {
     let env = Env::default();
     let (existing, _token, _employee) = common::setup(&env);
-    let existing_addresses = existing.get_addresses();
+    let mut addresses: ContractAddresses = existing.get_addresses();
     let missing_token = Address::generate(&env);
     let payroll_id = env.register_contract(None, Payroll);
     let client = PayrollClient::new(&env, &payroll_id);
 
     client.initialize(
-        &existing_addresses.admin,
-        &missing_token,
-        &existing_addresses.verifier,
-        &existing_addresses.commitment,
-        &existing_addresses.treasury,
-        &existing_addresses.treasury_owner,
+        &addresses.admin,
+        &addresses.token,
+        &addresses.verifier,
+        &addresses.commitment,
+        &addresses.treasury,
+        &addresses.treasury_owner,
     );
+
+    addresses.token = missing_token;
+    env.as_contract(&payroll_id, || {
+        env.storage()
+            .persistent()
+            .set(&DataKey::Addresses, &addresses);
+    });
+    client.set_asset_allowed(&addresses.token, &true);
 
     let result = client.check_funding_source_readiness(&100);
     assert!(!result.ready);
@@ -113,7 +121,9 @@ fn unavailable_token_contract_is_reported_cleanly() {
 }
 
 #[test]
-#[should_panic(expected = "Configured payroll asset is unavailable or does not implement the token balance interface")]
+#[should_panic(
+    expected = "Configured payroll asset is unavailable or does not implement the token balance interface"
+)]
 fn initialization_rejects_unavailable_asset_contract() {
     let env = Env::default();
     let (existing, _token, _employee) = common::setup(&env);
@@ -133,7 +143,9 @@ fn initialization_rejects_unavailable_asset_contract() {
 }
 
 #[test]
-#[should_panic(expected = "Configured payroll asset is unavailable or does not implement the token balance interface")]
+#[should_panic(
+    expected = "Configured payroll asset is unavailable or does not implement the token balance interface"
+)]
 fn initialization_rejects_contract_without_token_balance_interface() {
     let env = Env::default();
     let (existing, _token, _employee) = common::setup(&env);

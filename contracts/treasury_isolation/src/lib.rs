@@ -517,7 +517,10 @@ mod tests {
         client.reserve(&company_id, &asset, &500i128);
 
         let result = client.try_release_reserve(&company_id, &asset, &0i128);
-        assert_eq!(result.unwrap_err().unwrap(), TreasuryIsolationError::InvalidAmount);
+        assert_eq!(
+            result.unwrap_err().unwrap(),
+            TreasuryIsolationError::InvalidAmount
+        );
 
         let over_release = client.try_release_reserve(&company_id, &asset, &1_000i128);
         assert_eq!(
@@ -691,7 +694,9 @@ mod tests {
                 balance: 1000,
                 reserved: 1500,
             };
-            env.storage().persistent().set(&DataKey::Balance(company_id, asset.clone()), &corrupted);
+            env.storage()
+                .persistent()
+                .set(&DataKey::Balance(company_id, asset.clone()), &corrupted);
         });
 
         let result = client.try_release_reserve(&company_id, &asset, &100i128);

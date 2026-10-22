@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(deprecated)]
 
 //! Centralized structured event emission for the zk-payroll contract suite.
 //!
@@ -117,6 +118,7 @@ pub fn emit_deposit(e: &Env, from: Address, amount: i128, deposit_id: BytesN<32>
 /// lifecycle transition. The payload contains no employee, salary-row, or
 /// proof data; consumers can update treasury health dashboards without
 /// polling token and reservation storage.
+#[allow(clippy::too_many_arguments)]
 pub fn emit_treasury_balance_snapshot(
     e: &Env,
     asset: Address,
@@ -340,7 +342,10 @@ pub fn emit_batch_checkpoint_rolled_back(
     total_count: u32,
 ) {
     e.events().publish(
-        (payroll_topic(), Symbol::new(e, "batch_checkpoint_rolled_back")),
+        (
+            payroll_topic(),
+            Symbol::new(e, "batch_checkpoint_rolled_back"),
+        ),
         (
             employer,
             batch_root,
@@ -1087,7 +1092,10 @@ pub fn emit_audit_hold_released(
 /// Emitted when audit-hold authority is granted to an address (#546).
 pub fn emit_audit_hold_authority_added(e: &Env, authority: Address) {
     e.events().publish(
-        (payroll_topic(), Symbol::new(e, "audit_hold_authority_added")),
+        (
+            payroll_topic(),
+            Symbol::new(e, "audit_hold_authority_added"),
+        ),
         authority,
     );
 }
@@ -1095,7 +1103,10 @@ pub fn emit_audit_hold_authority_added(e: &Env, authority: Address) {
 /// Emitted when audit-hold authority is revoked from an address (#546).
 pub fn emit_audit_hold_authority_removed(e: &Env, authority: Address) {
     e.events().publish(
-        (payroll_topic(), Symbol::new(e, "audit_hold_authority_removed")),
+        (
+            payroll_topic(),
+            Symbol::new(e, "audit_hold_authority_removed"),
+        ),
         authority,
     );
 }
@@ -1492,6 +1503,73 @@ pub fn emit_retention_pruned(e: &Env, record_type: Symbol, record_id: u64, admin
     );
 }
 
+/// Emitted when the retention manager contract is initialized.
+///
+/// Privacy-safe: only the administrator address is disclosed; no retained
+/// record content is included.
+pub fn emit_retention_manager_initialized(e: &Env, admin: Address) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "retention_mgr_init")),
+        admin,
+    );
+}
+
+/// Emitted when a retention record is registered for a company.
+///
+/// Privacy-safe: only the company id, opaque record id, record type, and the
+/// expiry timestamp are disclosed.
+pub fn emit_retention_record_registered(
+    e: &Env,
+    company_id: u64,
+    record_id: u64,
+    record_type: Symbol,
+    expires_at: u64,
+) {
+    e.events().publish(
+        (
+            payroll_topic(),
+            Symbol::new(e, "retention_record_registered"),
+        ),
+        (company_id, record_id, record_type, expires_at),
+    );
+}
+
+/// Emitted when an audit or challenge block is set or cleared on a retention
+/// record.
+///
+/// Privacy-safe: only the company id, opaque record id, block kind, and the
+/// resulting boolean are disclosed.
+pub fn emit_retention_block_changed(
+    e: &Env,
+    company_id: u64,
+    record_id: u64,
+    block_kind: Symbol,
+    blocked: bool,
+) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "retention_block_changed")),
+        (company_id, record_id, block_kind, blocked),
+    );
+}
+
+/// Emitted when a retention record is pruned after its retention window
+/// elapsed.
+///
+/// Privacy-safe: only the company id, opaque record id, record type, and the
+/// prune timestamp are disclosed.
+pub fn emit_retention_record_pruned(
+    e: &Env,
+    company_id: u64,
+    record_id: u64,
+    record_type: Symbol,
+    pruned_at: u64,
+) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "retention_record_pruned")),
+        (company_id, record_id, record_type, pruned_at),
+    );
+}
+
 /// Emitted when the administrator changes the retention policy.
 pub fn emit_retention_policy_set(
     e: &Env,
@@ -1568,7 +1646,13 @@ pub fn emit_review_resolution_audit(
 ) {
     e.events().publish(
         (payroll_topic(), Symbol::new(e, "review_resolution_audit")),
-        (review_id, run_id, resolved_by, resolution_reason, resolved_at),
+        (
+            review_id,
+            run_id,
+            resolved_by,
+            resolution_reason,
+            resolved_at,
+        ),
     );
 }
 
