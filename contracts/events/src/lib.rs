@@ -242,10 +242,13 @@ pub fn emit_run_prepared(e: &Env, run_id: u64, total_spend: i128) {
 }
 
 /// Emitted when a pending payroll run is cancelled.
-pub fn emit_run_cancelled(e: &Env, run_id: u64, total_amount: i128) {
+///
+/// The payload deliberately contains only the run ID and cancelling admin.
+/// It excludes amounts, employee counts, draft hashes, and free-form reasons.
+pub fn emit_run_cancelled(e: &Env, run_id: u64, cancelled_by: Address) {
     e.events().publish(
         (payroll_topic(), Symbol::new(e, "run_cancelled")),
-        (run_id, total_amount),
+        (run_id, cancelled_by),
     );
 }
 
@@ -1906,5 +1909,37 @@ pub fn emit_treasury_debited(e: &Env, company_id: u64, asset: Address, amount: i
     e.events().publish(
         (payroll_topic(), Symbol::new(e, "treas_debited")),
         (company_id, asset, amount),
+    );
+}
+
+/// Emitted when an explicit reserve authorizer is granted permission for a company (#819).
+pub fn emit_treasury_reserve_authorizer_set(e: &Env, company_id: u64, authorizer: Address) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "treas_auth_set")),
+        (company_id, authorizer),
+    );
+}
+
+/// Emitted when an explicit reserve authorizer's permission is revoked for a company (#819).
+pub fn emit_treasury_reserve_authorizer_removed(e: &Env, company_id: u64, authorizer: Address) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "treas_auth_rem")),
+        (company_id, authorizer),
+    );
+}
+
+/// Emitted when a fallback funding source is configured (#787).
+pub fn emit_fallback_funding_source_set(e: &Env, treasury: Address, token: Address) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "fallback_funding_set")),
+        (treasury, token),
+    );
+}
+
+/// Emitted when a fallback funding source is removed (#787).
+pub fn emit_fallback_funding_source_removed(e: &Env) {
+    e.events().publish(
+        (payroll_topic(), Symbol::new(e, "fallback_funding_rem")),
+        (),
     );
 }
